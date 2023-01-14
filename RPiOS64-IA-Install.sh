@@ -30,35 +30,7 @@ printf " $YELLOW
 ====================================================================
 $NORMAL\n" && sleep 3
 
-#### GET THE RPI MODEL #### EXTRA STEPS FOR RPI3B+ ##################### UNTESTED #######################################################
-RPIMOD=$(cat /sys/firmware/devicetree/base/model | cut -d ' ' -f 3)
-if [ $RPIMOD == 3 ]
- then
-  printf "Officially, the only supported model is Raspberry Pi 4. Unfortunately, you have a model 3.\n"
-  printf "Edit installer.sh manually.. I hope you know what you are doing..."
-  exit
-  ## WORKS BUT DOSEN'T SHOW RPI 3 WARNINGS YET ...
-  # [ ] ADD WARNING MESSAGES
-  # [ ] GET RPI3 VALUES SWAP ZRAM INSTED OF HARD CODING ?
-  PI3_ZRAM='1664'                 # zram 1,6GB
-  PI3_SWAP='384'                  # dphys-swapfile 0,4GB
-  ##
-  apt install -y zram-tools
-  printf "SIZE=$PI3_ZRAM\nPRIORITY=100\nALGO=lz4\n" >> /etc/default/zramswap
-  printf "CONF_SWAPSIZE=$PI3_SWAP\n" >> /etc/dphys-swapfile
-  vm.swappiness=100 >> /etc/sysctl.d/99-sysctl.conf
-  # fix net names eth0 | enxMAC # !
-  RPIMAC=$(ip a | grep ether | cut -d ' ' -f 6)
-  printf "SUBSYSTEM==\"net\", ACTION==\"add\", DRIVERS==\"?*\", ATTR{address}==\"$RPIMAC\", ATTR{dev_id}==\"0x0\", ATTR{type}==\"1\", KERNEL==\"eth*\", NAME=\"eth0\"\n" > /etc/udev/rules.d/70-presistant-net.rules
-fi
-
-#### GET USER INPUTS #### HOSTNAME ######################################################################################################
-read -p "Enter new hostname e.g. RPi4-01-PVE : " HOSTNAME
-while [[ ! "$HOSTNAME" =~ ^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$  ]]
- do
-  printf " --->$RED $HOSTNAME $NORMAL<--- Is NOT an valid HOSTNAME, try again...\n"
-  read -p "Enter new hostname e.g.: RPi4-01-PVE  : " HOSTNAME
-done
+HOSTNAME=$(hostname)
 
 #### IP AND NETMASK ! ###################################################################################################################
 read -p "Enter new static IP and NETMASK e.g. 192.168.0.100/24 : " RPI_IP
@@ -88,8 +60,6 @@ $YELLOW#########################################################################
 =========================================================================================$NORMAL
 THE NEW HOSTNAME WILL BE:$GREEN $HOSTNAME $NORMAL
 =========================================================================================
-THE DHCP SERVER ($YELLOW dhcpcd5 $NORMAL) WILL BE $RED REMOVED $NORMAL !!!
-=========================================================================================
 THE PIMOX REPO WILL BE ADDED IN : $YELLOW /etc/apt/sources.list.d/pimox.list $NORMAL CONFIGURATION :
 $GRAY# Pimox 7 Development Repo$NORMAL
 deb https://raw.githubusercontent.com/pimox/pimox7/master/ dev/
@@ -110,9 +80,16 @@ THE HOSTNAMES IN : $YELLOW /etc/hosts $NORMAL WILL BE $RED OVERWRITTEN $NORMAL !
 127.0.0.1\tlocalhost
 $RPI_IP_ONLY\t$HOSTNAME
 =========================================================================================
-THESE STATEMENTS WILL BE $RED ADDED $NORMAL TO THE $YELLOW /boot/cmdline.txt $NORMAL IF NONE EXISTENT :
+THESE STATEMENTS WILL BE $RED ADDED $NORMAL TO THE $YELLOW /etc/default/grub $NORMAL IF NONE EXISTENT :
 cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1
 $YELLOW=========================================================================================
+TEN64 SPECIFIC:
+
+The Traverse 5.15 kernel package will be installed (to align with mainline Proxmox)
+cloud-init will be removed
+contrib repo will be enabled for bullseye-backports
+Google public DNS will be used as the DNS resolver, you can
+change it in /etc/network/interfaces later
 #########################################################################################\n $NORMAL
 "
 
@@ -120,6 +97,19 @@ $YELLOW=========================================================================
 read -p "YOU ARE OKAY WITH THESE CHANGES ? YOUR DECLARATIONS ARE CORRECT ? CONTINUE ? y / n : " CONFIRM
 if [ "$CONFIRM" != "y" ]; then exit; fi
 
+echo 'deb [trusted=yes] https://archive.traverse.com.au/pub/traverse/debian-experimental/ lts-5-15 main' > /etc/apt/sources.list.d/traverse.list
+
+(grep -q -E "deb .*bullseye-backports.*contrib" /etc/apt/sources.list) || {
+  sed -i 's/\(deb .*bullseye-backports\)/\1 contrib/g' /etc/apt/sources.list
+}
+
+apt-get update && \
+  apt-get -y install linux-image-traverse bridge-utils gnupg && \
+  apt-get remove -y cloud-init &&
+  apt-get -y upgrade
+
+INSTALLED_KERNEL_VERSION=$(dpkg-query --showformat='${Version}' --show linux-image-traverse)
+apt-get -y install "linux-headers-${INSTALLED_KERNEL_VERSION::-2}"
 #### SET A ROOT PWD FOR WEB GUI LOGIN ###################################################################################################
 printf "
 =========================================================================================
@@ -135,28 +125,34 @@ printf "
 =========================================================================================\n
 "
 
-#### SET NEW HOSTNAME ###################################################################################################################
-hostnamectl set-hostname $HOSTNAME
-
 #### ADD SOURCE PIMOX7 + KEY & UPDATE & INSTALL RPI-KERNEL-HEADERS #######################################################################
 printf "# PiMox7 Development Repo
 deb https://raw.githubusercontent.com/pimox/pimox7/master/ dev/ \n" > /etc/apt/sources.list.d/pimox.list
 curl https://raw.githubusercontent.com/pimox/pimox7/master/KEY.gpg |  apt-key add -
 apt update && apt upgrade -y
 
-#### REMOVE DHCP, CLEAN UP ###############################################################################################################
-apt purge -y dhcpcd5
+#### CLEAN UP ###############################################################################################################
 apt autoremove -y
 
 #### FIX CONTAINER STATS NOT SHOWING UP IN WEB GUI #######################################################################################
-if [ "$(cat /boot/cmdline.txt | grep cgroup)" != "" ]
+source /etc/default/grub
+
+if [ "$(echo ${GRUB_CMDLINE_LINUX_DEFAULT} | grep cgroup)" != "" ]
  then
   printf "Seems to be already fixed!"
  else
-  sed -i "1 s|$| cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1|" /boot/cmdline.txt
+  NEW_LINUX_CMDLINE="${GRUB_CMDLINE_LINUX_DEFAULT} cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1"
+  sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT=\"${NEW_LINUX_CMDLINE}\"/g" /etc/default/grub
 fi
+update-grub
+
+#### NETWORK RECONFIG MOVED HERE (TEN64) - AVOID DISRUPTION DURING PACKAGE DOWNLOAD
 
 #### INSTALL PIMOX7 AND REBOOT ###########################################################################################################
+
+#### Ten64 edit: Download all packages now, as network stack may be inoperable after some proxmox packages install
+
+apt-get -y install --download-only proxmox-ve
 
 #### Install pve-manager separately, and without recommended packages, to avoid packaging issue later.
 DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" pve-manager
@@ -183,7 +179,10 @@ iface vmbr0 inet static
         gateway $GATEWAY
         bridge-ports eth0
         bridge-stp off
-        bridge-fd 0 \n" > /etc/network/interfaces.new
+        bridge-fd 0
+        dns-nameserver 8.8.8.8\n" > /etc/network/interfaces.new
+
+rm "/etc/network/interfaces.d/50-cloud-init"
 
 #### CONFIGURE PIMOX7 BANNER #############################################################################################################
 cp /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js.auto.backup
