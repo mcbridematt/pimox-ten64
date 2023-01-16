@@ -23,7 +23,7 @@ If you want to use the pimox7 package set, just edit the repository used in the 
 
 2. Once your fresh Debian install is up and running, copy the `IA-Install.sh` script to your Ten64
 
-3. Run the IA-Install.sh as the default (`debian`) user, from the __serial__ console (you will lose network connectivity during the install process!)
+3. Run the IA-Install.sh from a root prompt (sudo -i to elevate from the `debian` user) on the __serial__ console (you will lose network connectivity during the install process!)
 
    `debian@debian:~$ sudo -i # (elevate to root, needs to be -i to get the root user profile)`
    `root@debian:/home/debian# bash IA-Install.sh`
