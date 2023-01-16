@@ -15,6 +15,8 @@ repository as well.
 
 If you want to use the pimox7 package set, just edit the repository used in the install script.
 
+Discussion thread on Traverse forum: https://forum.traverse.com.au/t/proxmox-pimox-installer-for-ten64/282/1
+
 ## Installation instructions
 
 1. Install a fresh Debian stable (11) using the [appliance store / recovery environment](https://ten64doc.traverse.com.au/software/appliancestore/)
