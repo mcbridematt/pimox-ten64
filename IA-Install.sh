@@ -85,7 +85,7 @@ cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1
 $YELLOW=========================================================================================
 TEN64 SPECIFIC:
 
-The Traverse 5.15 kernel package will be installed (to align with mainline Proxmox)
+The Traverse 6.1 kernel package will be installed (to ensure network and vfio works)
 cloud-init will be removed
 contrib repo will be enabled for bullseye-backports
 Google public DNS will be used as the DNS resolver, you can
@@ -97,7 +97,7 @@ change it in /etc/network/interfaces later
 read -p "YOU ARE OKAY WITH THESE CHANGES ? YOUR DECLARATIONS ARE CORRECT ? CONTINUE ? y / n : " CONFIRM
 if [ "$CONFIRM" != "y" ]; then exit; fi
 
-echo 'deb [trusted=yes] https://archive.traverse.com.au/pub/traverse/debian-experimental/ lts-5-15 main' > /etc/apt/sources.list.d/traverse.list
+echo 'deb [trusted=yes] https://archive.traverse.com.au/pub/traverse/debian-experimental/ lts-6-1 main' > /etc/apt/sources.list.d/traverse.list
 
 (grep -q -E "deb .*bullseye-backports.*contrib" /etc/apt/sources.list) || {
   sed -i 's/\(deb .*bullseye-backports\)/\1 contrib/g' /etc/apt/sources.list
