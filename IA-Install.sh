@@ -126,9 +126,9 @@ printf "
 "
 
 #### ADD SOURCE PIMOX7 + KEY & UPDATE & INSTALL RPI-KERNEL-HEADERS #######################################################################
-printf "# jiangcuo Proxmox-Arm64 https://github.com/jiangcuo/Proxmox-Arm64/wiki/Install-Proxmox-VE-on-Debian-bullseye
-deb https://mirrors.apqa.cn/proxmox/ pvearm  main\n" > /etc/apt/sources.list.d/pimox.list
-curl -L https://mirrors.apqa.cn/proxmox/gpg.key |  apt-key add -
+printf "# jiangcuo Proxmox-Arm64 https://github.com/jiangcuo/Proxmox-Port/wiki/Install-Proxmox-VE-on-Debian-bookworm
+deb https://mirrors.apqa.cn/proxmox/debian/pve bookworm port\n" > /etc/apt/sources.list.d/pimox.list
+curl https://mirrors.apqa.cn/proxmox/debian/pveport.gpg -o /etc/apt/trusted.gpg.d/pveport.gpg
 
 #printf "# PiMox7 Development Repo
 #deb https://raw.githubusercontent.com/pimox/pimox7/master/ dev/ \n" > /etc/apt/sources.list.d/pimox.list
