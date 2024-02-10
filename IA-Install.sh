@@ -186,7 +186,7 @@ iface vmbr0 inet static
         bridge-fd 0
         dns-nameserver 8.8.8.8\n" > /etc/network/interfaces.new
 
-rm "/etc/network/interfaces.d/50-cloud-init"
+rm -rf "/etc/netplan"
 
 #### CONFIGURE PIMOX7 BANNER #############################################################################################################
 cp /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js.auto.backup
