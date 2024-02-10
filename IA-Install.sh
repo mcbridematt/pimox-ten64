@@ -104,7 +104,7 @@ echo 'deb [trusted=yes] https://archive.traverse.com.au/pub/traverse/debian-expe
 }
 
 apt-get update && \
-  apt-get -y install linux-image-traverse bridge-utils gnupg && \
+  apt-get -y install linux-image-traverse bridge-utils gnupg ifupdown2 && \
   apt-get remove -y cloud-init &&
   apt-get -y upgrade
 
